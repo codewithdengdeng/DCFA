@@ -1,33 +1,32 @@
 ##     DCFA, dynamic collaborative filtering with aesthetic features
 ##     author @Wenhui Yu
 
+import time
+
+import xlwt
 import numpy as np
-from Library import readdata
-from Library import readdata_time
 from Library import evaluation_F1
 from Library import evaluation_NDCG
-from Library import save_result
 from Library import read_feature
-from numpy import *
-import xlwt
-import time
-import json
+from Library import readdata
+from Library import readdata_time
+from Library import save_result
 
 ##parameter setting
-dataset = 5                         # Datasets selecting 0 to 5 for 'All', '_Women', '_Men', '_CLothes', '_Shoes', '_Jewelry' respectively
-eta = 0.03                          # learning rate
-I = 200                             # length of latent feature
-J = 100                             # length of latent feature
-top_k = [5, 10, 20, 50, 100]        # number to recommend
-batch_size_train = 5000             # batch size for traing
-batch_size_test = 1000              # batch size for tessing
-lambda_c = 0.1                      # weighting parameter for couple matrices
-lambda_r = 1.5                      # regularization coefficient
-vali_test = 0                       # 0 for validate set,1 for test set
-feat = [3]                          # feature selecting, 0 for CNN, 1 for AES, 2 for CH, 3 for CNN+AES
-feature_length = 1000               # length of feature
-epoch = 200                         # number to iteration
-sample_rate = 5                     # sample sample_rate negative samples for each positive item
+dataset = 5  # Datasets selecting 0 to 5 for 'All', '_Women', '_Men', '_CLothes', '_Shoes', '_Jewelry' respectively
+eta = 0.03  # learning rate
+I = 200  # length of latent feature
+J = 100  # length of latent feature
+top_k = [5, 10, 20, 50, 100]  # number to recommend
+batch_size_train = 5000  # batch size for training
+batch_size_test = 1000  # batch size for testing
+lambda_c = 0.1  # weighting parameter for couple matrices
+lambda_r = 1.5  # regularization coefficient
+vali_test = 0  # 0 for validate set,1 for test set
+feat = [3]  # feature selecting, 0 for CNN, 1 for AES, 2 for CH, 3 for CNN+AES
+feature_length = 1000  # length of feature
+epoch = 200  # number to iteration
+sample_rate = 5  # sample sample_rate negative samples for each positive item
 
 
 def d(x):
@@ -37,15 +36,17 @@ def d(x):
     if x < -10:
         return 1
     if x >= -10 and x <= 10:
-        return 1.0 / (1.0 + exp(x))
+        return 1.0 / (1.0 + np.exp(x))
+
 
 def get_feature(dataset):
     # to load features
-    feat_list = ['CNN', 'AES', 'CH', 'CNN_AES']             # feature list
+    feat_list = ['CNN', 'AES', 'CH', 'CNN_AES']  # feature list
     F = read_feature(feat_list[feat[0]], dataset, Q)
     for i in range(1, len(feat)):
         F = np.hstack((F, read_feature(feat_list[feat[i]], dataset, Q)))
     return F
+
 
 def get_order(Order, length):
     # combining several recommendation lists into one, for tensor-based model
@@ -58,15 +59,16 @@ def get_order(Order, length):
         ind += 1
     return order
 
+
 def test_DCFA(U, Vu, Vt, T, M, N, F):
     # test the effectiveness
-    U = mat(U)
-    Vu = mat(Vu)
-    Vt = mat(Vt)
-    T = mat(T)
-    F = mat(F)
-    M = mat(M)
-    N = mat(N)
+    U = np.mat(U)
+    Vu = np.mat(Vu)
+    Vt = np.mat(Vt)
+    T = np.mat(T)
+    F = np.mat(F)
+    M = np.mat(M)
+    N = np.mat(N)
     k_num = len(top_k)
     # k_num-long lists to record F1 and NDCG
     F1 = np.zeros(k_num)
@@ -75,7 +77,7 @@ def test_DCFA(U, Vu, Vt, T, M, N, F):
 
     # choose batch_size_test test samples randomly
     for i in range(batch_size_test):
-        j = int(math.floor(num_item * random.random()))
+        j = int(np.math.floor(num_item * np.random.random()))
         # test data: [u, [i, i, i, i], [r, r, r]], where u, i, r are for user, item, time, respectively
         u = Test[j][0]
         test_item = Test[j][1]
@@ -89,7 +91,7 @@ def test_DCFA(U, Vu, Vt, T, M, N, F):
             VT = np.array(VT.tolist()[0])
             score = (UV * VT).tolist()
             # order
-            b = zip(score, range(len(score)))
+            b = list(zip(score, list(range(len(score)))))
             b.sort(key=lambda x: x[0])
             order = [x[1] for x in b]
             order.reverse()
@@ -121,22 +123,22 @@ def test_DCFA(U, Vu, Vt, T, M, N, F):
 def train_DCFA(eta):
     # train the model
     # initialization
-    U = np.array([np.array([(random.random() / math.sqrt(I)) for j in range(I)]) for i in range(P)])
-    Vu = np.array([np.array([(random.random() / math.sqrt(I)) for j in range(I)]) for i in range(Q)])
-    Vt = np.array([np.array([(random.random() / math.sqrt(J)) for j in range(J)]) for i in range(Q)])
-    T = np.array([np.array([(random.random() / math.sqrt(J)) for j in range(J)]) for i in range(R)])
+    U = np.array([np.array([(np.random.random() / np.math.sqrt(I)) for j in range(I)]) for i in range(P)])
+    Vu = np.array([np.array([(np.random.random() / np.math.sqrt(I)) for j in range(I)]) for i in range(Q)])
+    Vt = np.array([np.array([(np.random.random() / np.math.sqrt(J)) for j in range(J)]) for i in range(Q)])
+    T = np.array([np.array([(np.random.random() / np.math.sqrt(J)) for j in range(J)]) for i in range(R)])
 
-    M = np.array([np.array([(random.random() / math.sqrt(K)) for j in range(K)]) for i in range(P)])
-    N = np.array([np.array([(random.random() / math.sqrt(K)) for j in range(K)]) for i in range(R)])
-    e = 10**10
+    M = np.array([np.array([(np.random.random() / np.math.sqrt(K)) for j in range(K)]) for i in range(P)])
+    N = np.array([np.array([(np.random.random() / np.math.sqrt(K)) for j in range(K)]) for i in range(R)])
+    e = 10 ** 10
 
     # output a result without training
-    print 'iteration ', 0,
+    print('iteration ', 0, end=' ')
     [F1, NDCG] = test_DCFA(U, Vu, Vt, T, M, N, F)
     Fmax = 0
     if F1[0] > Fmax:
         Fmax = F1[0]
-    print Fmax, 'F1: ', F1, '  ', 'NDCG1: ', NDCG
+    print(Fmax, 'F1: ', F1, '  ', 'NDCG1: ', NDCG)
     # save to the .xls file
     save_result([' '], [''] * len(top_k), [''] * len(top_k), path_excel)
     save_result('metric', ['F1'] * len(top_k), ['NDCG'] * len(top_k), path_excel)
@@ -147,11 +149,11 @@ def train_DCFA(eta):
     # the number of train samples
     Re = len(train_data)
     # split the train samples with a step of batch_size_train
-    bs = range(0, Re, batch_size_train)
+    bs = list(range(0, Re, batch_size_train))
     bs.append(Re)
 
     for ep in range(0, epoch):
-        print 'iteration ', ep + 1,
+        print('iteration ', ep + 1, end=' ')
         eta = eta * 0.99
         # iterate all train samples in one epoch
         for i in range(0, len(bs) - 1):
@@ -182,7 +184,7 @@ def train_DCFA(eta):
                     num = 0
                     # choose sample_rate negative items, and calculate the gradient
                     while num < sample_rate:
-                        qj = int(random.uniform(0, Q))
+                        qj = int(np.random.uniform(0, Q))
                         if (not qj in train_data_aux[p][0]) and (not qj in train_time_aux[r][1]):
                             num += 1
                             UV = np.dot(U[p], Vu[qj])
@@ -219,15 +221,16 @@ def train_DCFA(eta):
             [F1, NDCG] = test_DCFA(U, Vu, Vt, T, M, N, F)
             if F1[0] > Fmax:
                 Fmax = F1[0]
-            print Fmax, 'F1: ', F1, '  ', 'NDCG1: ', NDCG
+            print(Fmax, 'F1: ', F1, '  ', 'NDCG1: ', NDCG)
             save_result('iteration ' + str(ep + 1), F1, NDCG, path_excel)
         else:
             break
-        #return U, Vu, Vt, T, M, N
+        # return U, Vu, Vt, T, M, N
     if abs(U.sum()) < e:
         return 0
     else:
         return 1
+
 
 def save_parameter():
     # record the parameters
@@ -268,22 +271,23 @@ def save_parameter():
 
     excel.save(path_excel)
 
+
 def print_parameter():
-    print 'model', 'DCFA'
-    print 'dataset', dataset
-    print 'eta', eta
-    print 'I', I
-    print 'J', J
-    print 'top_k', top_k
-    print 'batch_size_train', batch_size_train
-    print 'batch_size_test', batch_size_test
-    print 'lambda_c', lambda_c
-    print 'lambda_r', lambda_r
-    print 'vali_test', vali_test
-    print 'feat', feat
-    print 'feature_length', feature_length
-    print 'epoch', epoch
-    print
+    print('model', 'DCFA')
+    print('dataset', dataset)
+    print('eta', eta)
+    print('I', I)
+    print('J', J)
+    print('top_k', top_k)
+    print('batch_size_train', batch_size_train)
+    print('batch_size_test', batch_size_test)
+    print('lambda_c', lambda_c)
+    print('lambda_r', lambda_r)
+    print('vali_test', vali_test)
+    print('feat', feat)
+    print('feature_length', feature_length)
+    print('epoch', epoch)
+    print()
 
 
 '''*************************main function****************************'''
@@ -305,8 +309,8 @@ for i in range(1):
         Test = test_data
 
     for j in range(1):
-        path_excel = 'E:\\experiment_result\\' + dataset_list[dataset] + '_DCFA_' + str(int(time.time())) + str(int(random.uniform(100,900))) + '.xls'
+        path_excel = '.\\experiment_result\\' + dataset_list[dataset] + '_DCFA_' + str(int(time.time())) + str(
+            int(np.random.uniform(100, 900))) + '.xls'
         save_parameter()
         print_parameter()
         train_DCFA(eta)
-
